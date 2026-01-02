@@ -15,14 +15,41 @@ import GameCanvas from '@/components/GameCanvas';
 import BikeShop from '@/components/BikeShop';
 import UpgradesTab from '@/components/UpgradesTab';
 import EventsTab from '@/components/EventsTab';
+import ProfileTab from '@/components/game/ProfileTab';
+import QuestsTab from '@/components/game/QuestsTab';
+import NightRaceEvent from '@/components/game/NightRaceEvent';
+import CoinExchangeShop from '@/components/game/CoinExchangeShop';
+import LevelMap from '@/components/game/LevelMap';
 
 interface Level {
   id: number;
-  difficulty: 'easy' | 'medium' | 'hard' | 'expert';
+  difficulty: 'easy' | 'medium' | 'hard' | 'expert' | 'impossible';
   reward: number;
   locked: boolean;
   completed: boolean;
   stars: number;
+}
+
+interface Avatar {
+  id: number;
+  emoji: string;
+  name: string;
+  price: number;
+  unlocked: boolean;
+}
+
+interface Quest {
+  id: number;
+  title: string;
+  description: string;
+  icon: string;
+  progress: number;
+  target: number;
+  reward: number;
+  eventReward: number;
+  completed: boolean;
+  claimed: boolean;
+  type: 'daily' | 'weekly' | 'special';
 }
 
 interface Achievement {
@@ -80,6 +107,8 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState('home');
   const [coins, setCoins] = useState(1200);
   const [eventCoins, setEventCoins] = useState(50);
+  const [nickname, setNickname] = useState('Гонщик');
+  const [selectedAvatar, setSelectedAvatar] = useState('🏍️');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [username, setUsername] = useState('Гонщик');
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
@@ -95,11 +124,11 @@ const Index = () => {
     customUnlocked: false
   });
 
-  const levels: Level[] = Array.from({ length: 16 }, (_, i) => ({
+  const levels: Level[] = Array.from({ length: 17 }, (_, i) => ({
     id: i + 1,
-    difficulty: i < 5 ? 'easy' : i < 10 ? 'medium' : i < 15 ? 'hard' : 'expert',
-    reward: i < 5 ? 50 : i < 10 ? 75 : i < 15 ? 100 : 200,
-    locked: false,
+    difficulty: i < 5 ? 'easy' : i < 10 ? 'medium' : i < 15 ? 'hard' : i === 15 ? 'expert' : 'impossible',
+    reward: i < 5 ? 50 + (i * 250) : i < 10 ? 200 + ((i-5) * 500) : i < 15 ? 700 + ((i-10) * 1000) : i === 15 ? 5000 : 10000,
+    locked: i === 16,
     completed: false,
     stars: 0
   }));
@@ -123,9 +152,9 @@ const Index = () => {
 
   const [bikeModels, setBikeModels] = useState<BikeModel[]>([
     { id: 1, name: 'Стартовый байк', price: 0, purchased: true, speed: 1.0, handling: 1.0 },
-    { id: 2, name: 'Спорт-байк', price: 500, purchased: false, speed: 1.2, handling: 1.1 },
-    { id: 3, name: 'Гоночный байк', price: 1000, purchased: false, speed: 1.5, handling: 1.2 },
-    { id: 4, name: 'Кибер-байк', price: 2000, purchased: false, speed: 1.8, handling: 1.3 },
+    { id: 2, name: 'Спорт-байк', price: 750, purchased: false, speed: 1.2, handling: 1.1 },
+    { id: 3, name: 'Гоночный байк', price: 1500, purchased: false, speed: 1.5, handling: 1.2 },
+    { id: 4, name: 'Кибер-байк', price: 3000, purchased: false, speed: 1.8, handling: 1.3 },
   ]);
 
   const [upgrades, setUpgrades] = useState<Upgrade[]>([
@@ -136,10 +165,38 @@ const Index = () => {
   const [gameEvents, setGameEvents] = useState<GameEvent[]>([
     { id: 1, title: 'Зимний турнир', description: 'Пройдите 5 уровней без падений', progress: 0, total: 5, reward: 150, eventReward: 25, active: true, completed: false },
     { id: 2, title: 'Марафон скорости', description: 'Проедьте 15000 метров суммарно', progress: 0, total: 15000, reward: 300, eventReward: 50, active: true, completed: false },
-    { id: 3, title: 'Ночной заезд', description: 'Соберите 200 монет за один заезд', progress: 0, total: 200, reward: 100, eventReward: 20, active: true, completed: false },
   ]);
 
-  const handleLevelComplete = (levelId: number) => {
+  const [avatars, setAvatars] = useState<Avatar[]>([
+    { id: 1, emoji: '🏍️', name: 'Байкер', price: 0, unlocked: true },
+    { id: 2, emoji: '😎', name: 'Крутой', price: 100, unlocked: false },
+    { id: 3, emoji: '🔥', name: 'Огонь', price: 150, unlocked: false },
+    { id: 4, emoji: '⚡', name: 'Молния', price: 200, unlocked: false },
+    { id: 5, emoji: '💀', name: 'Череп', price: 250, unlocked: false },
+    { id: 6, emoji: '👑', name: 'Король', price: 300, unlocked: false },
+    { id: 7, emoji: '🚀', name: 'Ракета', price: 350, unlocked: false },
+    { id: 8, emoji: '🎯', name: 'Снайпер', price: 400, unlocked: false },
+    { id: 9, emoji: '💎', name: 'Алмаз', price: 500, unlocked: false },
+    { id: 10, emoji: '🌟', name: 'Звезда', price: 600, unlocked: false },
+    { id: 11, emoji: '🦁', name: 'Лев', price: 700, unlocked: false },
+    { id: 12, emoji: '🐉', name: 'Дракон', price: 1000, unlocked: false },
+  ]);
+
+  const [quests, setQuests] = useState<Quest[]>([
+    { id: 1, title: 'Новичок', description: 'Пройдите первый уровень', icon: 'Flag', progress: 0, target: 1, reward: 50, eventReward: 5, completed: false, claimed: false, type: 'daily' },
+    { id: 2, title: 'Трюкач', description: 'Выполните 15 прыжков', icon: 'MoveUp', progress: 0, target: 15, reward: 75, eventReward: 10, completed: false, claimed: false, type: 'daily' },
+    { id: 3, title: 'Собиратель', description: 'Соберите 100 монет', icon: 'Coins', progress: 0, target: 100, reward: 100, eventReward: 15, completed: false, claimed: false, type: 'daily' },
+    { id: 4, title: 'Гонщик недели', description: 'Пройдите 10 уровней', icon: 'Trophy', progress: 0, target: 10, reward: 300, eventReward: 50, completed: false, claimed: false, type: 'weekly' },
+    { id: 5, title: 'Марафонец', description: 'Проедьте 20000 метров', icon: 'Gauge', progress: 0, target: 20000, reward: 500, eventReward: 75, completed: false, claimed: false, type: 'weekly' },
+    { id: 6, title: 'Легенда', description: 'Пройдите уровень Невозможно', icon: 'Crown', progress: 0, target: 1, reward: 2000, eventReward: 200, completed: false, claimed: false, type: 'special' },
+  ]);
+
+  const [nightRaceActive, setNightRaceActive] = useState(false);
+  const [totalDistance, setTotalDistance] = useState(0);
+  const [totalJumps, setTotalJumps] = useState(0);
+  const [totalCoinsCollected, setTotalCoinsCollected] = useState(0);
+
+  const handleLevelComplete = (levelId: number, distance: number, jumps: number, coinsEarned: number) => {
     const level = levelsState.find(l => l.id === levelId);
     if (!level) return;
 
@@ -150,14 +207,106 @@ const Index = () => {
       if (l.id === levelId + 1) {
         return { ...l, locked: false };
       }
+      if (levelId === 16 && l.id === 17) {
+        return { ...l, locked: false };
+      }
       return l;
     }));
 
     setCoins(prev => prev + level.reward);
+    setTotalDistance(prev => prev + distance);
+    setTotalJumps(prev => prev + jumps);
+    setTotalCoinsCollected(prev => prev + coinsEarned);
+
+    updateQuestsProgress(distance, jumps, coinsEarned, levelId);
+    updateAchievements(distance, jumps, coinsEarned);
+
     toast.success(`Уровень ${levelId} пройден! +${level.reward} монет`, {
-      description: `Всего монет: ${coins + level.reward}`
+      description: `Дистанция: ${distance}м, Прыжков: ${jumps}, Монет: ${coinsEarned}`
     });
     setIsGameActive(false);
+  };
+
+  const updateQuestsProgress = (distance: number, jumps: number, coinsEarned: number, levelsCompleted: number) => {
+    setQuests(prev => prev.map(quest => {
+      let newProgress = quest.progress;
+
+      if (quest.id === 1 && levelsCompleted >= 1) newProgress = Math.min(quest.target, newProgress + 1);
+      if (quest.id === 2) newProgress = Math.min(quest.target, newProgress + jumps);
+      if (quest.id === 3) newProgress = Math.min(quest.target, newProgress + coinsEarned);
+      if (quest.id === 4 && levelsCompleted >= 1) newProgress = Math.min(quest.target, newProgress + 1);
+      if (quest.id === 5) newProgress = Math.min(quest.target, newProgress + distance);
+      if (quest.id === 6 && levelsCompleted === 17) newProgress = 1;
+
+      const completed = newProgress >= quest.target;
+      return { ...quest, progress: newProgress, completed };
+    }));
+  };
+
+  const updateAchievements = (distance: number, jumps: number, coinsEarned: number) => {
+    setAchievements(prev => prev.map(ach => {
+      let newProgress = ach.progress;
+
+      if (ach.id === 2) newProgress = Math.min(ach.total, totalDistance + distance);
+      if (ach.id === 3) newProgress = Math.min(ach.total, Math.max(newProgress, coinsEarned));
+      if (ach.id === 4) newProgress = Math.min(ach.total, totalJumps + jumps);
+      if (ach.id === 6) newProgress = coins;
+
+      const unlocked = newProgress >= ach.total;
+      return { ...ach, progress: newProgress, unlocked };
+    }));
+  };
+
+  const handleClaimQuestReward = (questId: number) => {
+    const quest = quests.find(q => q.id === questId);
+    if (!quest || !quest.completed || quest.claimed) return;
+
+    setCoins(prev => prev + quest.reward);
+    setEventCoins(prev => prev + quest.eventReward);
+    setQuests(prev => prev.map(q => q.id === questId ? { ...q, claimed: true } : q));
+    toast.success(`Награда получена! +${quest.reward} монет, +${quest.eventReward} эвент-коинов`);
+  };
+
+  const handleAvatarPurchase = (avatarId: number) => {
+    const avatar = avatars.find(a => a.id === avatarId);
+    if (!avatar || avatar.unlocked) return;
+
+    if (coins >= avatar.price) {
+      setCoins(prev => prev - avatar.price);
+      setAvatars(prev => prev.map(a => a.id === avatarId ? { ...a, unlocked: true } : a));
+      setSelectedAvatar(avatar.emoji);
+      toast.success(`Аватар ${avatar.name} куплен!`);
+    } else {
+      toast.error('Недостаточно монет');
+    }
+  };
+
+  const handleExchangeCoins = (offerId: number) => {
+    const offers = [
+      { id: 1, eventCoins: 10, coins: 100 },
+      { id: 2, eventCoins: 25, coins: 350 },
+      { id: 3, eventCoins: 50, coins: 900 },
+      { id: 4, eventCoins: 100, coins: 2200 },
+      { id: 5, eventCoins: 250, coins: 7000 }
+    ];
+
+    const offer = offers.find(o => o.id === offerId);
+    if (!offer) return;
+
+    if (eventCoins >= offer.eventCoins) {
+      setEventCoins(prev => prev - offer.eventCoins);
+      setCoins(prev => prev + offer.coins);
+      toast.success(`Обменяно ${offer.eventCoins} Event Coins на ${offer.coins} монет!`);
+    } else {
+      toast.error('Недостаточно Event Coins');
+    }
+  };
+
+  const handleNightRaceComplete = (score: number, earnedCoins: number) => {
+    setCoins(prev => prev + earnedCoins);
+    setEventCoins(prev => prev + Math.floor(score / 100));
+    toast.success(`Ночной заезд завершён! +${earnedCoins} монет`);
+    setNightRaceActive(false);
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -166,6 +315,7 @@ const Index = () => {
       case 'medium': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50';
       case 'hard': return 'bg-orange-500/20 text-orange-400 border-orange-500/50';
       case 'expert': return 'bg-red-900/40 text-red-400 border-red-500/50 glow-red';
+      case 'impossible': return 'bg-purple-900/40 text-purple-400 border-purple-500/50 glow-purple animate-pulse';
       default: return '';
     }
   };
@@ -176,6 +326,7 @@ const Index = () => {
       case 'medium': return 'Средний';
       case 'hard': return 'Сложный';
       case 'expert': return 'Эксперт';
+      case 'impossible': return 'Невозможно';
       default: return '';
     }
   };
@@ -210,12 +361,12 @@ const Index = () => {
   };
 
   const handleCustomUnlock = () => {
-    if (coins >= 1000) {
-      setCoins(prev => prev - 1000);
+    if (coins >= 3500) {
+      setCoins(prev => prev - 3500);
       setBikeCustomization(prev => ({ ...prev, customUnlocked: true }));
       toast.success('Кастомная RGB тема разблокирована!');
     } else {
-      toast.error('Нужно 1000 монет');
+      toast.error('Нужно 3500 монет');
     }
   };
 
@@ -231,16 +382,27 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+      {nightRaceActive && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4">
+          <div className="w-full max-w-5xl">
+            <NightRaceEvent 
+              onComplete={handleNightRaceComplete}
+              onExit={() => setNightRaceActive(false)}
+            />
+          </div>
+        </div>
+      )}
+
       {isGameActive && selectedLevel && (
         <GameCanvas
           level={selectedLevel}
           bikeCustomization={bikeCustomization}
-          onComplete={() => handleLevelComplete(selectedLevel)}
+          onComplete={() => handleLevelComplete(selectedLevel, 0, 0, 0)}
           onExit={() => setIsGameActive(false)}
         />
       )}
 
-      {!isGameActive && (
+      {!isGameActive && !nightRaceActive && (
         <>
           <nav className="border-b border-white/10 bg-black/30 backdrop-blur-xl sticky top-0 z-50">
             <div className="container mx-auto px-4 py-4">
@@ -278,14 +440,22 @@ const Index = () => {
           </nav>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="container mx-auto px-4 py-8">
-            <TabsList className="grid grid-cols-4 lg:grid-cols-8 gap-2 bg-black/40 p-2 mb-8 w-full">
+            <TabsList className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-9 gap-2 bg-black/40 p-2 mb-8 w-full">
               <TabsTrigger value="home" className="data-[state=active]:glow-green">
                 <Icon name="Home" size={18} />
                 <span className="hidden md:inline ml-2">Главная</span>
               </TabsTrigger>
+              <TabsTrigger value="profile">
+                <Icon name="User" size={18} />
+                <span className="hidden md:inline ml-2">Профиль</span>
+              </TabsTrigger>
               <TabsTrigger value="levels">
                 <Icon name="Map" size={18} />
                 <span className="hidden md:inline ml-2">Уровни</span>
+              </TabsTrigger>
+              <TabsTrigger value="quests">
+                <Icon name="ListTodo" size={18} />
+                <span className="hidden md:inline ml-2">Задания</span>
               </TabsTrigger>
               <TabsTrigger value="bikes">
                 <Icon name="Bike" size={18} />
@@ -299,21 +469,13 @@ const Index = () => {
                 <Icon name="Palette" size={18} />
                 <span className="hidden md:inline ml-2">RGB</span>
               </TabsTrigger>
-              <TabsTrigger value="events">
-                <Icon name="Calendar" size={18} />
-                <span className="hidden md:inline ml-2">События</span>
+              <TabsTrigger value="shop">
+                <Icon name="ShoppingCart" size={18} />
+                <span className="hidden md:inline ml-2">Магазин</span>
               </TabsTrigger>
               <TabsTrigger value="achievements">
                 <Icon name="Trophy" size={18} />
                 <span className="hidden md:inline ml-2">Достижения</span>
-              </TabsTrigger>
-              <TabsTrigger value="profile">
-                <Icon name="User" size={18} />
-                <span className="hidden md:inline ml-2">Профиль</span>
-              </TabsTrigger>
-              <TabsTrigger value="tasks">
-                <Icon name="ListTodo" size={18} />
-                <span className="hidden md:inline ml-2">Задания</span>
               </TabsTrigger>
             </TabsList>
 
@@ -337,68 +499,53 @@ const Index = () => {
                   </Button>
                 </Card>
 
-                <Card className="bg-black/40 border-white/10 p-6 md:p-8">
-                  <h3 className="text-xl md:text-2xl font-bold text-gradient mb-6">Статистика</h3>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Пройдено уровней</span>
-                      <span className="text-xl md:text-2xl font-bold text-emerald-400">
-                        {levelsState.filter(l => l.completed).length}/16
-                      </span>
+                <div className="space-y-6">
+                  <Card className="bg-black/40 border-white/10 p-6 md:p-8">
+                    <h3 className="text-xl md:text-2xl font-bold text-gradient mb-6">Статистика</h3>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Пройдено уровней</span>
+                        <span className="text-xl md:text-2xl font-bold text-emerald-400">
+                          {levelsState.filter(l => l.completed).length}/17
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Собрано монет</span>
+                        <span className="text-xl md:text-2xl font-bold text-yellow-400">{coins}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Достижений</span>
+                        <span className="text-xl md:text-2xl font-bold text-purple-400">
+                          {achievements.filter(a => a.unlocked).length}/{achievements.length}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Собрано монет</span>
-                      <span className="text-xl md:text-2xl font-bold text-yellow-400">{coins}</span>
+                  </Card>
+
+                  <Card className="bg-gradient-to-br from-purple-950/40 to-purple-900/20 border-purple-500/30 p-6 md:p-8">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Icon name="Moon" className="text-purple-400" size={32} />
+                      <h3 className="text-xl font-bold">Ночной заезд</h3>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Достижений</span>
-                      <span className="text-xl md:text-2xl font-bold text-purple-400">
-                        {achievements.filter(a => a.unlocked).length}/{achievements.length}
-                      </span>
-                    </div>
-                  </div>
-                </Card>
+                    <p className="text-gray-300 mb-4">Особое событие! Проедьте в полной темноте, видя только свет фар</p>
+                    <Button onClick={() => setNightRaceActive(true)} className="w-full glow-purple">
+                      <Icon name="Play" size={20} className="mr-2" />
+                      Начать ночной заезд
+                    </Button>
+                  </Card>
+                </div>
               </div>
             </TabsContent>
 
             <TabsContent value="levels" className="animate-fade-in">
-              <h2 className="text-2xl md:text-3xl font-bold text-gradient mb-6 md:mb-8">Выбери уровень</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 md:gap-4">
-                {levelsState.map((level) => (
-                  <Card
-                    key={level.id}
-                    className={`p-4 md:p-6 text-center cursor-pointer transition-all hover:scale-105 ${
-                      level.locked 
-                        ? 'bg-gray-800/40 border-gray-700 opacity-50 cursor-not-allowed' 
-                        : getDifficultyColor(level.difficulty)
-                    } ${level.completed ? 'border-yellow-500/50' : ''}`}
-                    onClick={() => {
-                      if (!level.locked) {
-                        setSelectedLevel(level.id);
-                        setIsGameActive(true);
-                      }
-                    }}
-                  >
-                    {level.locked ? (
-                      <Icon name="Lock" className="mx-auto mb-2 text-gray-500" size={28} />
-                    ) : (
-                      <Icon name="Bike" className="mx-auto mb-2" size={28} />
-                    )}
-                    <div className="text-xl md:text-2xl font-bold mb-2">{level.id}</div>
-                    <Badge variant="outline" className={`text-xs ${getDifficultyColor(level.difficulty)}`}>
-                      {getDifficultyLabel(level.difficulty)}
-                    </Badge>
-                    {level.completed && (
-                      <div className="flex justify-center gap-1 mt-2">
-                        {Array.from({ length: level.stars }).map((_, i) => (
-                          <Icon key={i} name="Star" className="text-yellow-400" size={10} />
-                        ))}
-                      </div>
-                    )}
-                    <div className="text-xs text-gray-400 mt-2">+{level.reward}</div>
-                  </Card>
-                ))}
-              </div>
+              <h2 className="text-2xl md:text-3xl font-bold text-gradient mb-6 md:mb-8">🗺️ Карта уровней</h2>
+              <LevelMap 
+                levels={levelsState}
+                onLevelSelect={(levelId) => {
+                  setSelectedLevel(levelId);
+                  setIsGameActive(true);
+                }}
+              />
             </TabsContent>
 
             <TabsContent value="bikes">
@@ -424,12 +571,12 @@ const Index = () => {
                 <Card className="bg-black/40 border-emerald-500/30 p-6 md:p-8 text-center max-w-2xl mx-auto">
                   <Icon name="Lock" className="mx-auto mb-4 text-emerald-500" size={64} />
                   <h3 className="text-xl md:text-2xl font-bold mb-4">RGB Панель заблокирована</h3>
-                  <p className="text-gray-400 mb-6 text-lg">Разблокируйте полную кастомизацию цветов за 1000 монет</p>
+                  <p className="text-gray-400 mb-6 text-lg">Разблокируйте полную кастомизацию цветов за 3500 монет</p>
                   <div className="flex items-center justify-center gap-2 mb-6 text-2xl">
                     <Icon name="Coins" className="text-yellow-400" size={32} />
-                    <span className="font-bold text-yellow-400">1000</span>
+                    <span className="font-bold text-yellow-400">3500</span>
                   </div>
-                  <Button onClick={handleCustomUnlock} className="glow-green" size="lg" disabled={coins < 1000}>
+                  <Button onClick={handleCustomUnlock} className="glow-green" size="lg" disabled={coins < 3500}>
                     Разблокировать RGB панель
                   </Button>
                 </Card>
@@ -489,11 +636,10 @@ const Index = () => {
               )}
             </TabsContent>
 
-            <TabsContent value="events">
-              <EventsTab 
-                events={gameEvents}
+            <TabsContent value="shop">
+              <CoinExchangeShop 
                 eventCoins={eventCoins}
-                onClaimReward={handleClaimEventReward}
+                onExchange={handleExchangeCoins}
               />
             </TabsContent>
 
@@ -523,60 +669,23 @@ const Index = () => {
               </div>
             </TabsContent>
 
-            <TabsContent value="profile" className="animate-fade-in">
-              <div className="max-w-2xl mx-auto">
-                <Card className="bg-black/40 border-white/10 p-6 md:p-8">
-                  <div className="flex items-center gap-4 md:gap-6 mb-6 md:mb-8">
-                    <Avatar className="w-16 h-16 md:w-24 md:h-24">
-                      <AvatarFallback className="text-2xl md:text-3xl">{username[0]}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h2 className="text-2xl md:text-3xl font-bold text-gradient mb-2">{username}</h2>
-                      <p className="text-sm md:text-base text-gray-400">Уровень 1 • Новичок</p>
-                    </div>
-                  </div>
+            <TabsContent value="profile">
+              <ProfileTab 
+                nickname={nickname}
+                selectedAvatar={selectedAvatar}
+                avatars={avatars}
+                coins={coins}
+                onNicknameChange={setNickname}
+                onAvatarSelect={setSelectedAvatar}
+                onAvatarPurchase={handleAvatarPurchase}
+              />
+            </TabsContent>
 
-                  {isAuthenticated ? (
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="username">Имя пользователя</Label>
-                        <div className="flex gap-2 mt-2">
-                          <Input
-                            id="username"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            placeholder="Введите имя"
-                          />
-                          <Button onClick={() => toast.success('Имя обновлено!')}>Сохранить</Button>
-                        </div>
-                      </div>
-                      <div>
-                        <Label>Аватар</Label>
-                        <div className="grid grid-cols-5 gap-2 mt-2">
-                          {['🏍️', '🏁', '⚡', '🔥', '💨'].map((emoji) => (
-                            <Button
-                              key={emoji}
-                              variant="outline"
-                              className="text-xl md:text-2xl h-12 md:h-16"
-                              onClick={() => toast.success('Аватар обновлен!')}
-                            >
-                              {emoji}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <Icon name="Lock" className="mx-auto mb-4 text-gray-500" size={48} />
-                      <p className="text-gray-400 mb-4">Войдите, чтобы редактировать профиль</p>
-                      <Button onClick={() => setShowAuthDialog(true)} className="glow-green">
-                        Войти
-                      </Button>
-                    </div>
-                  )}
-                </Card>
-              </div>
+            <TabsContent value="quests">
+              <QuestsTab 
+                quests={quests}
+                onClaimReward={handleClaimQuestReward}
+              />
             </TabsContent>
 
             <TabsContent value="tasks" className="animate-fade-in">

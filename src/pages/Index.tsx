@@ -12,6 +12,9 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import GameCanvas from '@/components/GameCanvas';
+import BikeShop from '@/components/BikeShop';
+import UpgradesTab from '@/components/UpgradesTab';
+import EventsTab from '@/components/EventsTab';
 
 interface Level {
   id: number;
@@ -42,24 +45,47 @@ interface DailyTask {
   total: number;
 }
 
-interface ShopItem {
+interface BikeModel {
   id: number;
   name: string;
   price: number;
-  type: 'skin' | 'upgrade' | 'custom';
   purchased: boolean;
+  speed: number;
+  handling: number;
+}
+
+interface Upgrade {
+  id: number;
+  name: string;
+  type: 'speed' | 'armor';
+  level: number;
+  maxLevel: number;
+  price: number;
   icon: string;
+}
+
+interface GameEvent {
+  id: number;
+  title: string;
+  description: string;
+  progress: number;
+  total: number;
+  reward: number;
+  eventReward: number;
+  active: boolean;
+  completed: boolean;
 }
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('home');
-  const [coins, setCoins] = useState(150);
+  const [coins, setCoins] = useState(1200);
   const [eventCoins, setEventCoins] = useState(50);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [username, setUsername] = useState('Гонщик');
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
   const [isGameActive, setIsGameActive] = useState(false);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [selectedBike, setSelectedBike] = useState(1);
   
   const [bikeCustomization, setBikeCustomization] = useState({
     bodyColor: '#10b981',
@@ -73,19 +99,21 @@ const Index = () => {
     id: i + 1,
     difficulty: i < 5 ? 'easy' : i < 10 ? 'medium' : i < 15 ? 'hard' : 'expert',
     reward: i < 5 ? 50 : i < 10 ? 75 : i < 15 ? 100 : 200,
-    locked: i > 0,
+    locked: false,
     completed: false,
     stars: 0
   }));
 
   const [levelsState, setLevelsState] = useState(levels);
 
-  const achievements: Achievement[] = [
-    { id: 1, title: 'Новичок', description: 'Завершите первый уровень', icon: 'Trophy', unlocked: false, progress: 0, total: 1 },
-    { id: 2, title: 'Скоростной демон', description: 'Завершите уровень за 30 секунд', icon: 'Zap', unlocked: false, progress: 0, total: 1 },
-    { id: 3, title: 'Коллекционер', description: 'Соберите 1000 монет', icon: 'Coins', unlocked: false, progress: 150, total: 1000 },
-    { id: 4, title: 'Мастер', description: 'Получите 3 звезды на 10 уровнях', icon: 'Star', unlocked: false, progress: 0, total: 10 },
-  ];
+  const [achievements, setAchievements] = useState<Achievement[]>([
+    { id: 1, title: 'Первая кровь', description: 'Завершите первый уровень без падений', icon: 'Trophy', unlocked: false, progress: 0, total: 1 },
+    { id: 2, title: 'Скоростной демон', description: 'Проедьте 10000 метров суммарно', icon: 'Zap', unlocked: false, progress: 0, total: 10000 },
+    { id: 3, title: 'Коллекционер', description: 'Соберите 500 монет за игру', icon: 'Coins', unlocked: false, progress: 0, total: 500 },
+    { id: 4, title: 'Мастер прыжков', description: 'Выполните 100 прыжков', icon: 'MoveUp', unlocked: false, progress: 0, total: 100 },
+    { id: 5, title: 'Легенда', description: 'Пройдите уровень Эксперт', icon: 'Crown', unlocked: false, progress: 0, total: 1 },
+    { id: 6, title: 'Миллионер', description: 'Накопите 5000 монет', icon: 'Wallet', unlocked: false, progress: 0, total: 5000 },
+  ]);
 
   const dailyTasks: DailyTask[] = [
     { id: 1, title: 'Утренний заезд', description: 'Завершите 3 уровня подряд', reward: 50, completed: false, progress: 0, total: 3 },
@@ -93,18 +121,23 @@ const Index = () => {
     { id: 3, title: 'Выживший', description: 'Не врежьтесь в препятствия 5 раз подряд', reward: 50, completed: false, progress: 0, total: 5 },
   ];
 
-  const shopItems: ShopItem[] = [
-    { id: 1, name: 'Красный байк', price: 200, type: 'skin', purchased: false, icon: 'Bike' },
-    { id: 2, name: 'Синий байк', price: 200, type: 'skin', purchased: false, icon: 'Bike' },
-    { id: 3, name: 'Турбо ускорение', price: 300, type: 'upgrade', purchased: false, icon: 'Zap' },
-    { id: 4, name: 'Усиленная броня', price: 300, type: 'upgrade', purchased: false, icon: 'Shield' },
-    { id: 5, name: 'Кастомная тема', price: 1000, type: 'custom', purchased: false, icon: 'Palette' },
-  ];
+  const [bikeModels, setBikeModels] = useState<BikeModel[]>([
+    { id: 1, name: 'Стартовый байк', price: 0, purchased: true, speed: 1.0, handling: 1.0 },
+    { id: 2, name: 'Спорт-байк', price: 500, purchased: false, speed: 1.2, handling: 1.1 },
+    { id: 3, name: 'Гоночный байк', price: 1000, purchased: false, speed: 1.5, handling: 1.2 },
+    { id: 4, name: 'Кибер-байк', price: 2000, purchased: false, speed: 1.8, handling: 1.3 },
+  ]);
 
-  const eventItems = [
-    { id: 1, title: 'Зимний турнир', description: 'Завершите 5 зимних уровней', reward: 150, eventReward: 25, active: true },
-    { id: 2, title: 'Ночной заезд', description: 'Пройдите уровень в ночном режиме', reward: 100, eventReward: 15, active: true },
-  ];
+  const [upgrades, setUpgrades] = useState<Upgrade[]>([
+    { id: 1, name: 'Турбо ускорение', type: 'speed', level: 0, maxLevel: 5, price: 200, icon: 'Zap' },
+    { id: 2, name: 'Усиленная броня', type: 'armor', level: 0, maxLevel: 5, price: 200, icon: 'Shield' },
+  ]);
+
+  const [gameEvents, setGameEvents] = useState<GameEvent[]>([
+    { id: 1, title: 'Зимний турнир', description: 'Пройдите 5 уровней без падений', progress: 0, total: 5, reward: 150, eventReward: 25, active: true, completed: false },
+    { id: 2, title: 'Марафон скорости', description: 'Проедьте 15000 метров суммарно', progress: 0, total: 15000, reward: 300, eventReward: 50, active: true, completed: false },
+    { id: 3, title: 'Ночной заезд', description: 'Соберите 200 монет за один заезд', progress: 0, total: 200, reward: 100, eventReward: 20, active: true, completed: false },
+  ]);
 
   const handleLevelComplete = (levelId: number) => {
     const level = levelsState.find(l => l.id === levelId);
@@ -147,20 +180,53 @@ const Index = () => {
     }
   };
 
-  const handlePurchase = (item: ShopItem) => {
-    if (coins >= item.price && !item.purchased) {
-      setCoins(prev => prev - item.price);
-      if (item.type === 'custom') {
-        setBikeCustomization(prev => ({ ...prev, customUnlocked: true }));
-        toast.success('Кастомная тема разблокирована!');
-      } else {
-        toast.success(`${item.name} куплен!`);
-      }
-    } else if (item.purchased) {
-      toast.error('Уже куплено');
+  const handleBikePurchase = (bike: BikeModel) => {
+    if (coins >= bike.price && !bike.purchased) {
+      setCoins(prev => prev - bike.price);
+      setBikeModels(prev => prev.map(b => b.id === bike.id ? { ...b, purchased: true } : b));
+      setSelectedBike(bike.id);
+      toast.success(`${bike.name} куплен и выбран!`);
+    } else if (bike.purchased) {
+      setSelectedBike(bike.id);
+      toast.success(`${bike.name} выбран!`);
     } else {
       toast.error('Недостаточно монет');
     }
+  };
+
+  const handleUpgrade = (upgrade: Upgrade) => {
+    if (upgrade.level >= upgrade.maxLevel) {
+      toast.error('Максимальный уровень достигнут');
+      return;
+    }
+    const cost = upgrade.price * (upgrade.level + 1);
+    if (coins >= cost) {
+      setCoins(prev => prev - cost);
+      setUpgrades(prev => prev.map(u => u.id === upgrade.id ? { ...u, level: u.level + 1 } : u));
+      toast.success(`${upgrade.name} улучшен до уровня ${upgrade.level + 1}!`);
+    } else {
+      toast.error('Недостаточно монет');
+    }
+  };
+
+  const handleCustomUnlock = () => {
+    if (coins >= 1000) {
+      setCoins(prev => prev - 1000);
+      setBikeCustomization(prev => ({ ...prev, customUnlocked: true }));
+      toast.success('Кастомная RGB тема разблокирована!');
+    } else {
+      toast.error('Нужно 1000 монет');
+    }
+  };
+
+  const handleClaimEventReward = (eventId: number) => {
+    const event = gameEvents.find(e => e.id === eventId);
+    if (!event) return;
+
+    setCoins(prev => prev + event.reward);
+    setEventCoins(prev => prev + event.eventReward);
+    setGameEvents(prev => prev.map(e => e.id === eventId ? { ...e, completed: true } : e));
+    toast.success(`Награда получена! +${event.reward} монет, +${event.eventReward} эвент-коинов`);
   };
 
   return (
@@ -221,13 +287,17 @@ const Index = () => {
                 <Icon name="Map" size={18} />
                 <span className="hidden md:inline ml-2">Уровни</span>
               </TabsTrigger>
-              <TabsTrigger value="shop">
-                <Icon name="ShoppingBag" size={18} />
-                <span className="hidden md:inline ml-2">Магазин</span>
+              <TabsTrigger value="bikes">
+                <Icon name="Bike" size={18} />
+                <span className="hidden md:inline ml-2">Байки</span>
+              </TabsTrigger>
+              <TabsTrigger value="upgrades">
+                <Icon name="Wrench" size={18} />
+                <span className="hidden md:inline ml-2">Улучшения</span>
               </TabsTrigger>
               <TabsTrigger value="custom">
                 <Icon name="Palette" size={18} />
-                <span className="hidden md:inline ml-2">Кастомизация</span>
+                <span className="hidden md:inline ml-2">RGB</span>
               </TabsTrigger>
               <TabsTrigger value="events">
                 <Icon name="Calendar" size={18} />
@@ -331,46 +401,36 @@ const Index = () => {
               </div>
             </TabsContent>
 
-            <TabsContent value="shop" className="animate-fade-in">
-              <h2 className="text-2xl md:text-3xl font-bold text-gradient mb-6 md:mb-8">Магазин</h2>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                {shopItems.map((item) => (
-                  <Card key={item.id} className="bg-black/40 border-white/10 p-4 md:p-6 hover:border-emerald-500/50 transition-all">
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="bg-emerald-500/20 p-3 md:p-4 rounded-lg">
-                        <Icon name={item.icon as any} className="text-emerald-400" size={28} />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-bold text-base md:text-lg">{item.name}</h3>
-                        <div className="flex items-center gap-2 text-yellow-400">
-                          <Icon name="Coins" size={14} />
-                          <span className="font-bold text-sm">{item.price}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <Button 
-                      onClick={() => handlePurchase(item)}
-                      className="w-full" 
-                      size="sm"
-                      disabled={item.purchased || coins < item.price}
-                      variant={item.purchased ? "secondary" : "default"}
-                    >
-                      {item.purchased ? 'Куплено' : 'Купить'}
-                    </Button>
-                  </Card>
-                ))}
-              </div>
+            <TabsContent value="bikes">
+              <BikeShop 
+                bikes={bikeModels}
+                selectedBike={selectedBike}
+                coins={coins}
+                onPurchase={handleBikePurchase}
+              />
+            </TabsContent>
+
+            <TabsContent value="upgrades">
+              <UpgradesTab 
+                upgrades={upgrades}
+                coins={coins}
+                onUpgrade={handleUpgrade}
+              />
             </TabsContent>
 
             <TabsContent value="custom" className="animate-fade-in">
-              <h2 className="text-2xl md:text-3xl font-bold text-gradient mb-6 md:mb-8">Кастомизация мотоцикла</h2>
+              <h2 className="text-2xl md:text-3xl font-bold text-gradient mb-6 md:mb-8">RGB Кастомизация</h2>
               {!bikeCustomization.customUnlocked ? (
-                <Card className="bg-black/40 border-emerald-500/30 p-6 md:p-8 text-center">
-                  <Icon name="Lock" className="mx-auto mb-4 text-emerald-500" size={48} />
-                  <h3 className="text-xl md:text-2xl font-bold mb-4">Кастомная тема заблокирована</h3>
-                  <p className="text-gray-400 mb-6">Купите кастомную тему в магазине за 1000 монет</p>
-                  <Button onClick={() => setActiveTab('shop')} className="glow-green">
-                    Перейти в магазин
+                <Card className="bg-black/40 border-emerald-500/30 p-6 md:p-8 text-center max-w-2xl mx-auto">
+                  <Icon name="Lock" className="mx-auto mb-4 text-emerald-500" size={64} />
+                  <h3 className="text-xl md:text-2xl font-bold mb-4">RGB Панель заблокирована</h3>
+                  <p className="text-gray-400 mb-6 text-lg">Разблокируйте полную кастомизацию цветов за 1000 монет</p>
+                  <div className="flex items-center justify-center gap-2 mb-6 text-2xl">
+                    <Icon name="Coins" className="text-yellow-400" size={32} />
+                    <span className="font-bold text-yellow-400">1000</span>
+                  </div>
+                  <Button onClick={handleCustomUnlock} className="glow-green" size="lg" disabled={coins < 1000}>
+                    Разблокировать RGB панель
                   </Button>
                 </Card>
               ) : (
@@ -429,32 +489,12 @@ const Index = () => {
               )}
             </TabsContent>
 
-            <TabsContent value="events" className="animate-fade-in">
-              <h2 className="text-2xl md:text-3xl font-bold text-gradient mb-6 md:mb-8">События</h2>
-              <div className="grid md:grid-cols-2 gap-4 md:gap-6">
-                {eventItems.map((event) => (
-                  <Card key={event.id} className="bg-gradient-to-br from-purple-950/40 to-purple-900/20 border-purple-500/30 p-4 md:p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg md:text-xl font-bold">{event.title}</h3>
-                      {event.active && <Badge className="bg-emerald-500 text-black text-xs">Активно</Badge>}
-                    </div>
-                    <p className="text-gray-300 mb-4 text-sm md:text-base">{event.description}</p>
-                    <div className="flex items-center justify-between flex-wrap gap-4">
-                      <div className="flex gap-4">
-                        <div className="flex items-center gap-2">
-                          <Icon name="Coins" className="text-yellow-400" size={16} />
-                          <span className="font-bold text-yellow-400 text-sm">+{event.reward}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Icon name="Sparkles" className="text-purple-400" size={16} />
-                          <span className="font-bold text-purple-400 text-sm">+{event.eventReward}</span>
-                        </div>
-                      </div>
-                      <Button size="sm">Участвовать</Button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
+            <TabsContent value="events">
+              <EventsTab 
+                events={gameEvents}
+                eventCoins={eventCoins}
+                onClaimReward={handleClaimEventReward}
+              />
             </TabsContent>
 
             <TabsContent value="achievements" className="animate-fade-in">

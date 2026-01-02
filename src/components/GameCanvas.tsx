@@ -41,12 +41,12 @@ const GameCanvas = ({ level, bikeCustomization, onComplete, onExit }: GameCanvas
     bikeY: 300,
     bikeVelocityY: 0,
     isJumping: false,
-    speed: 5 + level * 0.5,
+    speed: 6 + level * 0.8,
     obstacles: [] as Obstacle[],
     coins: [] as Coin[],
     lastObstacleX: 800,
     lastCoinX: 600,
-    targetDistance: 500 + level * 100,
+    targetDistance: 3500 + level * 500,
   });
 
   useEffect(() => {
@@ -87,11 +87,13 @@ const GameCanvas = ({ level, bikeCustomization, onComplete, onExit }: GameCanvas
     const generateObstacle = () => {
       const types: Array<'box' | 'spike' | 'gap'> = ['box', 'spike', 'gap'];
       const type = types[Math.floor(Math.random() * types.length)];
+      const minGap = 200 + level * 15;
+      const maxGap = 400 + level * 25;
       const obstacle: Obstacle = {
-        x: gameStateRef.current.lastObstacleX + 300 + Math.random() * 200,
-        y: type === 'gap' ? canvas.height - 50 : canvas.height - 100 - Math.random() * 50,
-        width: type === 'gap' ? 100 : 60 + Math.random() * 40,
-        height: type === 'gap' ? 50 : 60 + Math.random() * 40,
+        x: gameStateRef.current.lastObstacleX + minGap + Math.random() * maxGap,
+        y: type === 'gap' ? canvas.height - 50 : canvas.height - 100 - Math.random() * 80,
+        width: type === 'gap' ? 120 + Math.random() * 80 : 70 + Math.random() * 60,
+        height: type === 'gap' ? 50 : 70 + Math.random() * 60,
         type,
       };
       gameStateRef.current.lastObstacleX = obstacle.x;
@@ -143,29 +145,58 @@ const GameCanvas = ({ level, bikeCustomization, onComplete, onExit }: GameCanvas
         state.isJumping = false;
       }
 
+      const bikeWidth = 80;
+      const bikeHeight = 50;
+      
       ctx.fillStyle = bikeCustomization.bodyColor;
-      ctx.fillRect(state.bikeX, state.bikeY, 60, 30);
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = bikeCustomization.bodyColor;
+      ctx.beginPath();
+      ctx.roundRect(state.bikeX + 10, state.bikeY, bikeWidth - 20, bikeHeight - 15, 8);
+      ctx.fill();
+      ctx.shadowBlur = 0;
       
       ctx.fillStyle = bikeCustomization.wheelColor;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(state.bikeX + 15, state.bikeY + 35, 12, 0, Math.PI * 2);
+      ctx.arc(state.bikeX + 20, state.bikeY + bikeHeight - 5, 16, 0, Math.PI * 2);
       ctx.fill();
+      ctx.stroke();
       ctx.beginPath();
-      ctx.arc(state.bikeX + 45, state.bikeY + 35, 12, 0, Math.PI * 2);
+      ctx.arc(state.bikeX + bikeWidth - 20, state.bikeY + bikeHeight - 5, 16, 0, Math.PI * 2);
       ctx.fill();
-
-      ctx.strokeStyle = bikeCustomization.handleColor;
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(state.bikeX + 50, state.bikeY);
-      ctx.lineTo(state.bikeX + 55, state.bikeY - 15);
       ctx.stroke();
 
+      ctx.strokeStyle = bikeCustomization.handleColor;
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(state.bikeX + bikeWidth - 15, state.bikeY + 5);
+      ctx.lineTo(state.bikeX + bikeWidth - 5, state.bikeY - 20);
+      ctx.lineTo(state.bikeX + bikeWidth, state.bikeY - 18);
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(50, 50, 50, 0.8)';
+      ctx.fillRect(state.bikeX + 25, state.bikeY + 10, 30, 12);
+
       if (bikeCustomization.hasLights) {
-        ctx.fillStyle = 'rgba(255, 255, 100, 0.8)';
+        const gradient = ctx.createRadialGradient(
+          state.bikeX + bikeWidth, state.bikeY + 15, 5,
+          state.bikeX + bikeWidth + 30, state.bikeY + 15, 40
+        );
+        gradient.addColorStop(0, 'rgba(255, 255, 150, 0.8)');
+        gradient.addColorStop(1, 'rgba(255, 255, 150, 0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(state.bikeX + bikeWidth, state.bikeY, 40, 30);
+        
+        ctx.fillStyle = '#ffff00';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#ffff00';
         ctx.beginPath();
-        ctx.arc(state.bikeX + 60, state.bikeY + 10, 5, 0, Math.PI * 2);
+        ctx.arc(state.bikeX + bikeWidth - 5, state.bikeY + 15, 6, 0, Math.PI * 2);
         ctx.fill();
+        ctx.shadowBlur = 0;
       }
 
       state.obstacles = state.obstacles.filter(obs => obs.x > -100);
